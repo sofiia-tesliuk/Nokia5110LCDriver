@@ -7,27 +7,54 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <asm/uaccess.h>
+#include <linux/cdev.h>
 
 MODULE_LICENSE("Dual BSD/GPL");
 
+#define MY_MAX_MINORS  5
+#define RES   17 // 0
+#define SCE   18 // 1
+#define DC    27 // 2
+#define SDIN  22 // 3
+#define SCLK  23 // 4
 
+#define LCD_WIDTH 84
+#define LCD_HEIGHT 48
+
+#define LCD_C  0
+#define LCD_D  1
+#define BUF_LEN 16
+static char message[BUF_LEN];
+static char *msg_p;
+
+//buffer to store data
+char * memory_buffer;
 /* --- D R I V E R   S P E C I F I C --------------------------------------- */
 
-int  lcd5110_open(struct inode *inode, struct file *filp);
-int  lcd5110_release(struct inode *inode, struct file *filp);
-ssize_t  lcd5110_read(struct file *filp, char *buf, size_t count, loff_t *f_pos);
-ssize_t lcd5110_write(struct file *filp, const char *buf, size_t count, loff_t *f_pos);
-void  lcd5110_exit(void);
-int    lcd5110_init(void);
+
+static int  lcd5110_open(struct inode *inode, struct file *filp);
+static int  lcd5110_release(struct inode *inode, struct file *filp);
+static ssize_t  lcd5110_read(struct file *filp, char *buf, size_t count, loff_t *f_pos);
+static ssize_t lcd5110_write(struct file *filp, const char *buf, size_t count, loff_t *f_pos);
+static void __exit lcd5110_exit(void);
+static int __init  lcd5110_init(void);
 
 /* Structure that declares the common */
-/* file access fcuntions */
+/* file access functions */
 struct file_operations lcd5110_fops = {
         .read =     lcd5110_read,
         .write =        lcd5110_write,
         .open =     lcd5110_open,
         .release =   lcd5110_release
 };
+
+struct my_device_data {
+    struct cdev cdev;
+    /* my data starts here */
+    //...
+};
+
+struct my_device_data devs[MY_MAX_MINORS];
 
 /* Driver global variables */
 /* Major number */
@@ -38,7 +65,7 @@ int lcd5110_major = 61;
 
 static const unsigned short ASCII[][5] =
         {
-                {0x00, 0x00, 0x00, 0x00, 0x00} // 20
+                 {0x00, 0x00, 0x00, 0x00, 0x00} // 20
                 ,{0x00, 0x00, 0x5f, 0x00, 0x00} // 21 !
                 ,{0x00, 0x07, 0x00, 0x07, 0x00} // 22 "
                 ,{0x14, 0x7f, 0x14, 0x7f, 0x14} // 23 #
@@ -136,25 +163,8 @@ static const unsigned short ASCII[][5] =
                 ,{0x00, 0x06, 0x09, 0x09, 0x06} // 7f .
         };
 
-#define BCM2708_PERI_BASE        0x20000000
-#define GPIO_BASE                (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
 
-#define PAGE_SIZE (4*1024)
-#define BLOCK_SIZE (4*1024)
 
-#define RES   17 // 0
-#define SCE   18 // 1
-#define DC    27 // 2
-#define SDIN  22 // 3
-#define SCLK  23 // 4
-#define TMP0  24 // 5
-#define TMP1  25 // 6
-
-#define LCD_WIDTH 84
-#define LCD_HEIGHT 48
-
-#define LCD_C  0
-#define LCD_D  1
 
 void initLcdScreen(void);
 void clearLcdScreen(void);
@@ -165,7 +175,7 @@ void writeStringToLcd(char *);
 module_init(lcd5110_init);
 module_exit(lcd5110_exit);
 
-int lcd5110_init(void) {
+static int __init  lcd5110_init(void) {
     int result;
 
     // register char device
@@ -192,11 +202,21 @@ int lcd5110_init(void) {
     clearLcdScreen();
     writeStringToLcd("LCD initialized");
 
+    /* Allocating memory for the buffer */
+    memory_buffer = kmalloc(1, GFP_KERNEL);
+    if (!memory_buffer) {
+        result = -ENOMEM;
+        goto fail;
+    }
+    memset(memory_buffer, 0, 1);
     printk("Inserting lcd5110 module\n");
     return 0;
+    fail:
+    lcd5110_exit();
+    return result;
 }
 
-void lcd5110_exit(void) {
+static void __exit lcd5110_exit(void) {
     unregister_chrdev(lcd5110_major, "lcd5110");
 
     int pins[5] = {RES, SCE, DC, SDIN, SCLK};
@@ -204,25 +224,40 @@ void lcd5110_exit(void) {
     for (g=0; g<6; g++) {
         gpio_free(pins[g]);
     }
+
+    /* Freeing buffer memory */
+    if (memory_buffer) {
+        kfree(memory_buffer);
+    }
+
     printk("Removing lcd5110 module\n");
 }
 
-int lcd5110_open(struct inode *inode, struct file *filp) {
+static int lcd5110_open(struct inode *inode, struct file *file){
+    struct my_device_data *my_data;
+    my_data = container_of(inode->i_cdev, struct my_device_data, cdev);
+    file->private_data = my_data;
+    return 0;
+}
+
+static int lcd5110_release(struct inode *inode, struct file *filp) {
     /* Success */
     return 0;
 }
 
-int lcd5110_release(struct inode *inode, struct file *filp) {
-    /* Success */
-    return 0;
+static ssize_t lcd5110_read(struct file *file, char * buf,size_t size, loff_t *f_pos) {
+    /* Transfering data to user space */
+    copy_to_user(buf, memory_buffer,1);
+    /* Changing reading position as best suits */
+    if (*f_pos == 0) {
+        *f_pos+=1;
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
-ssize_t lcd5110_read(struct file *filp, char *buf,
-                     size_t count, loff_t *f_pos) {
-    return 0;
-}
-
-ssize_t lcd5110_write( struct file *filp, const char *ubuf, size_t count, loff_t *f_pos) {
+static ssize_t lcd5110_write( struct file *filp, const char *ubuf, size_t count, loff_t *f_pos) {
     /* Buffer writing to the device */
     char *kbuf = kcalloc((count + 1), sizeof(char), GFP_KERNEL);
 
@@ -301,6 +336,7 @@ void writeCharToLcd(char data) {
         sendByteToLcd(LCD_D, ASCII[data-0x20][i]);
     sendByteToLcd(LCD_D, 0x00);
 }
+
 
 void writeStringToLcd(char *data) {
     while(*data)
