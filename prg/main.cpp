@@ -18,6 +18,7 @@ void clear_buffer (char * buffer) {
 
 int main (int argc, char** argv) {
     char buffer[MAX_STREAM_SIZE];
+    clear_buffer(buffer);
 
     std::vector<std::string> argv_vec(argv, argv + argc);
     if (argv_vec.size() == 3) {
@@ -29,14 +30,14 @@ int main (int argc, char** argv) {
             if (f_stream.is_open() && !f_stream.rdstate()) {
                 std::string content((std::istreambuf_iterator<char>(f_stream)),
                                     (std::istreambuf_iterator<char>()));
-                strcpy(buffer, content.c_str());
+                strcpy(buffer, content.substr(0, MAX_STREAM_SIZE).c_str());
             } else {
                 std::cout << "Couldn't open file: " << argv_vec[2] << std::endl;
                 exit(EXIT_FAILURE);
             }
 
         } else if (readable_type == "-m") {
-            strcpy(buffer, argv_vec[2].c_str());
+            strcpy(buffer, argv_vec[2].substr(0, MAX_STREAM_SIZE).c_str());
 
         } else {
             std::cout << "Invalid option " << readable_type << "(only -f / -m supported)" << std::endl;
@@ -45,8 +46,7 @@ int main (int argc, char** argv) {
 
         int fd;
 
-        clear_buffer(buffer);
-        fd = open("/native/lcd_test/led" , O_RDWR);
+        fd = open("/dev/lcd5110" , O_RDWR);
         if (fd == -1){
             fprintf(stderr, "Error opening file\n");
             exit(-1);
@@ -54,11 +54,8 @@ int main (int argc, char** argv) {
 
         write(fd, buffer , sizeof(buffer));
 
-        clear_buffer(buffer);
-        read(fd, buffer , 15);
-        fprintf(stdout, "Readed: \n");
-        fprintf(stdout, buffer);
         close(fd);
+        clear_buffer(buffer);
 
         return 0;
     }
