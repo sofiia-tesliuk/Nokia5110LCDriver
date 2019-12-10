@@ -6,7 +6,7 @@
 ```
 cd driver
 make
-sudo insmod main.ko
+sudo insmod lcd5110.ko
 sudo mknod /dev/lcd5110 c 61 0
 sudo chmod a+rw /dev/lcd5110
 ```
