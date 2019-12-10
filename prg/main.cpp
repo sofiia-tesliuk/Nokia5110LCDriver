@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <vector>
 #include <fstream>
+#include <iostream>
 
 #define MAX_STREAM_SIZE (116)
 
@@ -16,22 +17,21 @@ void clear_buffer (char * buffer) {
 
 
 int main (int argc, char** argv) {
-    char buffer [MAX_STREAM_SIZE];
+    char buffer[MAX_STREAM_SIZE];
 
     std::vector<std::string> argv_vec(argv, argv + argc);
-
     if (argv_vec.size() == 3) {
-
-        std::string& readable_type = argv_vec[1];
+        std::string &readable_type = argv_vec[1];
 
         // Read input to buffer either as a file or an input-string.
-        if (readable_type == "-f ") {
-            std::ifstream f(argv_vec[2].c_str());
-            if (f.good()) {
-                int fd = open(argv_vec[2].c_str(), O_RDONLY);
-                read(fd, buffer , MAX_STREAM_SIZE);
+        if (readable_type == "-f") {
+            std::ifstream f_stream(argv_vec[2]);
+            if (f_stream.is_open() && !f_stream.rdstate()) {
+                std::string content((std::istreambuf_iterator<char>(f_stream)),
+                                    (std::istreambuf_iterator<char>()));
+                strcpy(buffer, content.c_str());
             } else {
-                std::cout << "Invalid file given: " << argv_vec[2] << std::endl;
+                std::cout << "Couldn't open file: " << argv_vec[2] << std::endl;
                 exit(EXIT_FAILURE);
             }
 
@@ -39,11 +39,10 @@ int main (int argc, char** argv) {
             strcpy(buffer, argv_vec[2].c_str());
 
         } else {
-            std::cout << "Invalid options (only -f / -m supported)" << std::endl;
+            std::cout << "Invalid option " << readable_type << "(only -f / -m supported)" << std::endl;
             exit(EXIT_FAILURE);
         }
 
-        char message[] = "Hello world";
         int fd;
 
         clear_buffer(buffer);
@@ -53,8 +52,7 @@ int main (int argc, char** argv) {
             exit(-1);
         }
 
-        strcpy(buffer, message);
-        write(fd, buffer , sizeof(message));
+        write(fd, buffer , sizeof(buffer));
 
         clear_buffer(buffer);
         read(fd, buffer , 15);
