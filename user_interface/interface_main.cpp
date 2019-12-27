@@ -7,8 +7,14 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
-#define MAX_STREAM_SIZE (116)
+
+#define MAX_STREAM_SIZE (510)
+#define MAX_TEXT_SIZE (84)
+
+#define LCD_WIDTH 84
+#define LCD_HEIGHT 48
 
 
 void clear_buffer (char * buffer) {
@@ -25,12 +31,29 @@ int main (int argc, char** argv) {
         std::string &readable_type = argv_vec[1];
 
         // Read input to buffer either as a file or an input-string.
-        if (readable_type == "-f") {
+        if ((readable_type == "-f") || (readable_type == "-i")) {
             std::ifstream f_stream(argv_vec[2]);
             if (f_stream.is_open() && !f_stream.rdstate()) {
                 std::string content((std::istreambuf_iterator<char>(f_stream)),
-                                    (std::istreambuf_iterator<char>()));
-                strcpy(buffer, content.substr(0, MAX_STREAM_SIZE).c_str());
+                                        (std::istreambuf_iterator<char>()));
+                if (readable_type == "-f"){
+                    strcpy(buffer, content.substr(0, MAX_TEXT_SIZE).c_str());
+                } else{
+                    buffer[0] = 0x43;
+                    buffer[1] = 0x55;
+                    std::istringstream iss(content);
+                    int image_length = LCD_WIDTH * LCD_HEIGHT / 8;
+                    int i = 0;
+                    for (std::string line; std::getline(iss, line); ){
+                        if (i >= image_length)
+                            break;
+
+                        buffer[i + 2] = char(std::stoi(line));
+                        i++;
+                    }
+                    buffer[image_length + 2] = 0x00;
+                    buffer[image_length + 3] = '\0';
+                }
             } else {
                 std::cout << "Couldn't open file: " << argv_vec[2] << std::endl;
                 exit(EXIT_FAILURE);
@@ -46,7 +69,7 @@ int main (int argc, char** argv) {
 
         int fd;
 
-        fd = open("/dev/lcd5110" , O_RDWR);
+        fd = open("/dev/gpio_lcd5110" , O_RDWR);
         if (fd == -1){
             fprintf(stderr, "Error opening file\n");
             exit(-1);
