@@ -31,105 +31,22 @@ static unsigned char stbl_tmp;
 //enum lcd5110_data_mode_t {DATA_TEXT_MODE, DATA_IMAGE_MODE};
 
 /* --- D R I V E R   S P E C I F I C --------------------------------------- */
-
+//
 void initLcdScreen(struct spi_device *spi);
 void clearLcdScreen(struct spi_device *spi);
 void sendByteToLcd(struct spi_device *spi, bool, unsigned char);
 //void writeCharToLcd(char);
 //void writeStringToLcd(char *);
 
-//static int fdx_transfer(struct spi_device *spi, unsigned char *val) {
-//    int ret;
-//    struct spi_transfer t = {
-//            .tx_buf		= mtx,
-//            .rx_buf 	= mrx,
-//            .len		= 1,
-//    };
-//    struct spi_message	m;
-//
-//    mtx[0]=*val;
-//    mrx[0]=0;
-//
-//    spi_message_init(&m);
-//    spi_message_add_tail(&t, &m);
-//    if((ret=spi_sync(spi, &m))<0)
-//        return ret;
-//    retval=mrx[0];
-//    return ret;
-//}
-//
-//static ssize_t spi_led_store_val(struct device *dev,
-//                                 struct device_attribute *attr,
-//                                 const char *buf, size_t count)
-//{
-//    struct spi_device *spi = to_spi_device(dev);
-//    unsigned char tmp;
-//    unsigned long val;
-//
-//    if (strict_strtoul(buf, 10, &val) < 0)
-//        return -EINVAL;
-//    if (val > 255)
-//        return -EINVAL;
-//    switch(led_mode) {
-//        case LED_MODE_L2R:
-//        case LED_MODE_R2L:
-//            tmp = led_progress(val);
-//            break;
-//        default:
-//            tmp = (unsigned char)val;
-//    }
-//    stbl_tmp=tmp;
-//    if(fduplex_mode)
-//        fdx_transfer(spi, &tmp);
-//    else
-//        spi_write(spi, &tmp, sizeof(tmp));
-//    return count;
-//}
-//
-//static ssize_t spi_led_show_val(struct device *dev,
-//                                struct device_attribute *attr,
-//                                char *buf)
-//{
-//    unsigned char val;
-//    struct spi_device *spi = to_spi_device(dev);
-//    if(!fduplex_mode)
-//        spi_read(spi, &val, sizeof(val));
-//    return scnprintf(buf, PAGE_SIZE, "%d\n", fduplex_mode ? retval : val);
-//}
-//
-//static ssize_t spi_led_store_mode(struct device *dev,
-//                                  struct device_attribute *attr,
-//                                  const char *buf, size_t count)
-//{
-//    unsigned long tmp;
-//    if (strict_strtoul(buf, 10, &tmp) < 0)
-//        return -EINVAL;
-//    if(tmp>6)
-//        return -EINVAL;
-//    led_mode = (unsigned char)tmp&0x03;
-//    fduplex_mode = ((unsigned char)tmp&0x04)>>2;
-//    return count;
-//}
-//
-//static ssize_t spi_led_show_mode(struct device *dev,
-//                                 struct device_attribute *attr,
-//                                 char *buf)
-//{
-//    return scnprintf(buf, PAGE_SIZE, "%d\n", led_mode);
-//}
-//
-//static DEVICE_ATTR(value, S_IWUSR|S_IRUSR, spi_lcd5110_show_val, spi_lcd5110_store_val);
-//static DEVICE_ATTR(mode, S_IWUSR|S_IRUSR, spi_lcd5110_show_mode, spi_lcd5110_store_mode);
-//
-static struct attribute *spi_lcd5110_attributes[] = {
+//static struct attribute *spi_lcd5110_attributes[] = {
 //        &dev_attr_value.attr,
 //        &dev_attr_mode.attr,
-        NULL
-};
-
-static const struct attribute_group spi_lcd5110_attr_group = {
-        .attrs = spi_lcd5110_attributes,
-};
+//        NULL
+//};
+//
+//static const struct attribute_group spi_lcd5110_attr_group = {
+//        .attrs = spi_lcd5110_attributes,
+//};
 
 // Linking driver to device
 static int spi_lcd5110_probe(struct spi_device *spi) {
@@ -137,18 +54,18 @@ static int spi_lcd5110_probe(struct spi_device *spi) {
 
     spi->bits_per_word = 8;
     spi->mode = SPI_MODE_3;
-    spi->max_speed_hz = 35000;
+    spi->max_speed_hz = 3500000;
     ret = spi_setup(spi);
     if(ret < 0){
         printk("Failed to probe lcd5110 module\n");
         return ret;
     }
 
-    ret = sysfs_create_group(&spi->dev.kobj, &spi_lcd5110_attr_group);
-    if (ret < 0){
-        printk("Failed to create group of attributes lcd5110 module\n");
-        return ret;
-    }
+//    ret = sysfs_create_group(&spi->dev.kobj, &spi_lcd5110_attr_group);
+//    if (ret < 0){
+//        printk("Failed to create group of attributes lcd5110 module\n");
+//        return ret;
+//    }
 
     initLcdScreen(spi);
     clearLcdScreen(spi);
@@ -165,7 +82,7 @@ static int spi_lcd5110_probe(struct spi_device *spi) {
 
 // Unlinking device
 static int spi_lcd5110_remove(struct spi_device *spi) {
-    sysfs_remove_group(&spi->dev.kobj, &spi_lcd5110_attr_group);
+//    sysfs_remove_group(&spi->dev.kobj, &spi_lcd5110_attr_group);
     return 0;
 }
 
@@ -174,15 +91,10 @@ struct spi_device_id spi_lcd5110_id_table[] = {
         { }
 };
 
-//static const struct of_device_id lcdbar_of_match[] = {
-//        { .compatible = "lcd,spi_lcd5110" },
-//        {}
-//};
 
 static struct spi_driver spi_lcd5110_driver = {
         .driver = {
                 .name	= SPI_LCD5110_DRV_NAME,
-//                .of_match_table = of_match_ptr(lcdbar_of_match),
                 .owner	= THIS_MODULE,
         },
         .id_table	= spi_lcd5110_id_table,
@@ -229,8 +141,9 @@ static void __exit spi_lcd5110_exit(void) {
 module_init(spi_lcd5110_init);
 module_exit(spi_lcd5110_exit);
 
+//module_spi_driver(spi_lcd5110_driver);
+
 MODULE_DEVICE_TABLE(spi, spi_lcd5110_id_table);
-//MODULE_DEVICE_TABLE(of, lcdbar_of_match);
 
 MODULE_AUTHOR("CS_UCU_2019");
 MODULE_DESCRIPTION("spi_lcd5110");
@@ -239,7 +152,16 @@ MODULE_VERSION(DRIVER_VERSION);
 
 
 
-/* --- L C D   S T A R T S   H E R E --------------------------------------- */
+///* --- L C D   S T A R T S   H E R E --------------------------------------- */
+
+void sendByteToLcd(struct spi_device *spi, bool cd, unsigned char data) {
+    if(cd)
+        gpio_set_value(DC, true);
+    else
+        gpio_set_value(DC, false);
+
+    spi_write(spi, &data, sizeof(data));
+}
 
 void initLcdScreen(struct spi_device *spi) {
     // set GPIOs
@@ -257,15 +179,6 @@ void initLcdScreen(struct spi_device *spi) {
     sendByteToLcd(spi, LCD_C, 0x0c);
 
     clearLcdScreen(spi);
-}
-
-void sendByteToLcd(struct spi_device *spi, bool cd, unsigned char data) {
-    if(cd)
-        gpio_set_value(DC, true);
-    else
-        gpio_set_value(DC, false);
-
-    spi_write(spi, &data, sizeof(data));
 }
 
 void clearLcdScreen(struct spi_device *spi) {

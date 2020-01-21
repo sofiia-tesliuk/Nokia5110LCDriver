@@ -1,0 +1,15 @@
+/* Apalis SPI1 */
+&ecspi1 {
+         status = "okay";
+         spidev0: spidev@1 {
+               compatible = "";
+               reg = <0>;
+               spi-max-frequency = <3500000>;
+         };
+
+         spi_lcd5110@0 {
+               compatible = "lcd5110,spi_lcd5110";
+               reg = <0>;
+               spi-max-frequency = <3500000>;
+         };
+};

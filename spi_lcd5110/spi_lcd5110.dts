@@ -2,38 +2,30 @@
 /plugin/;
 
 / {
-  compatible = "lcd,spi_lcd5110";
+    compatible = "lcd5110,spi_lcd5110";
 
-  /* disable spi-dev for spi0.0 */
+    /* disable spi-dev for spi0.0 */
 
-  fragment@0 {
-    target = <&spidev0>;
-    __overlay__ {
-      status = "disabled";
-    };
-  };
-
-
-  /* the spi config */
-
-  fragment@1 {
-    target = <&spi0>;
-    __overlay__ {
-      /* needed to avoid dtc warning */
-      #address-cells = <1>;
-      #size-cells = <0>;
-      status = "okay";
-
-      spi_lcd5110: spi_lcd5110@0 {
-        reg = <0>; /* CE0 */
-        compatible = "spi_lcd5110";
-        spi-max-frequency = <3500000>; // 3.5MHz
+    fragment@0 {
+        target = <&spidev0>;
+        __overlay__ {
+        status = "disabled";
       };
     };
-  };
 
-  __overrides__ {
-    spimaxfrequency = <&spi_lcd5110>,"spi-max-frequency:0";
-  };
+    fragment@1 {
+        target = <&spi0>;
+        __overlay__ {
+            status = "okay";
+            #address-cells = <1>;
+            #size-cells = <0>;
 
+            spi_lcd5110: spi_lcd5110@0 {
+                reg = <0>; /* CE0 */
+                compatible = "lcd5110,spi_lcd5110";
+                spi-max-frequency = <3500000>; // 3.5MHz
+                status = "okay";
+            };
+        };
+    };
 };
