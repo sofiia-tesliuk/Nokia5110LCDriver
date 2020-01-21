@@ -8,7 +8,7 @@
 #include <linux/uaccess.h>
 #include <asm/uaccess.h>
 #include <linux/cdev.h>
-#include "acsii.h"
+#include "ascii.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -39,6 +39,7 @@ void clearLcdScreen(void);
 void sendByteToLcd(bool, unsigned char);
 void writeCharToLcd(char);
 void writeStringToLcd(char *);
+void showImage(char *);
 
 static ssize_t gpio_lcd5110_show_state_mode(struct kobject *kobj, struct kobj_attribute *attr, char *buf){
     if (active_mode)
@@ -167,10 +168,15 @@ static ssize_t gpio_lcd5110_write( struct file *filp, const char *ubuf, size_t c
             return;
         }
 
-        int g;
-
-        for(g = 0; g < image_length; g++){
-            sendByteToLcd(LCD_D, kbuf[g + 2]);
+        int j = 0;
+        int i = 0;
+        for(i=0; i < count; i++){
+            sendByteToLcd(LCD_D, kbuf[i]);
+            j++;
+            if (i >= LCD_WIDTH * LCD_HEIGHT / 8){
+                j = 0;
+                msleep(200);
+            }
         }
     }
 
@@ -322,6 +328,14 @@ void writeCharToLcd(char data) {
 
 
 void writeStringToLcd(char *data) {
-    while(*data)
+    int i = 0;
+    char *curr;
+    while(*data){
         writeCharToLcd(*data++);
+        i++;
+        if (i > 11){
+            i = 0;
+            msleep(1000);
+        }
+    }
 }

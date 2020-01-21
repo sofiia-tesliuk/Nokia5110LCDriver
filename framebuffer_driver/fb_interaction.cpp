@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
     unsigned char *fb_buf;
 
     if ((fb_device_file_descriptor = open(fb_name, O_RDWR)) < 0) {
-        std::cout << ("Failed to open " << fb_name var2) << std::endl;
+        std::cout << ("Failed to open " << fb_name) << std::endl;
         exit(EXIT_FAILURE);
     }
     if (ioctl(fb_device_file_descriptor, FBIOGET_VSCREENINFO, &vinfo)) {

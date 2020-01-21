@@ -1,5 +1,5 @@
-#ifndef NOKIA5110LCDRIVER_ACSII_H
-#define NOKIA5110LCDRIVER_ACSII_H
+#ifndef NOKIA5110LCDRIVER_ASCII_H
+#define NOKIA5110LCDRIVER_ASCII_H
 
 
 static const unsigned short ASCII[][5] =
@@ -102,4 +102,4 @@ static const unsigned short ASCII[][5] =
                 ,{0x00, 0x06, 0x09, 0x09, 0x06} // 7f .
         };
 
-#endif //NOKIA5110LCDRIVER_ACSII_H
+#endif //NOKIA5110LCDRIVER_ASCII_H
