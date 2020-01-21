@@ -1,141 +1,187 @@
 /*
- * Framebuffer driver definition.
- * main resource:
+ * Framebuffer driver for Nokia lcd-5110 display connected.
+ *
+ * main resources:
+ *  http://www.linux-fbdev.org/HOWTO/4.html official Linux tutorial
+ *  https://github.com/spotify/linux/blob/master/drivers/video/fbmem.c example from the tutorial
  *  http://www.esys.ir/Files/Ref_Books/Linux/esys.ir_Embedded.Linux.System.Design.and.Development.pdf
-
-=   Fill up driver operations structure struct fb_ops.
-   Fill up frame buffer fixed info struct fb_fix_screeninfo.
--   Fill up driver information structure struct fb_info.
--   Initialize hardware registers and video memory area.
--   Allocate and initialize color map struct fb_cmap, if necessary.7
--   Register the fb_info structure with driver framework using register_framebuffer.
-
  *  */
 
-#include <fb.h>
 
-#define LCD_WIDTH 84
-#define LCD_HEIGHT 48
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/errno.h>
+#include <linux/string.h>
+#include <linux/mm.h>
+#include <linux/vmalloc.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
 
-int fb_lcd5110_major = 29;
+#include <linux/fb.h>
+#include <linux/init.h>
 
-static struct fb_info fb_info;
+#define VIDEOMEMSIZE	(1*1024*1024)	/* 1 MB */
 
-static struct fb_ops fb_lcd5110_ops = {
-        .owner		= THIS_MODULE,
-        .fb_read = fb_sys_read
-//        .fb_open	= ...,
-//        .fb_write	= ...,
-//        .fb_release	= ...,
-//        .fb_pan_display	= ...,
-//        .fb_fillrect	= ...,
-//        .fb_copyarea	= ...,
-//        .fb_imageblit	= ...,
-//        .fb_cursor	= ...,
-};
+// ---- CONFIGURATIONS -----
 
-
-static int __init  fb_lcd5110_init(void);
-static int __init fb_lcd5110_probe(struct platform_device *device);
-static void __exit fb_lcd5110_exit(void);
+static void *videomemory;
+static u_long videomemorysize = VIDEOMEMSIZE;
 
 
-/* Config for GPU. */
-static struct fb_var_screeninfo fb_lcd5110_var __init_data = {
+static struct fb_var_screeninfo fb_lcd5110_var = {
         .xres           = 320,
         .yres           = 240,
         .xres_virtual   = 320,
         .yres_virtual   = 240,
         .width          = 84,
         .height         = 48,
-        .left_margin    = 0,
-        .right_margin   = 0,
-        .upper_margin   = 0,
-        .lower_margin   = 0,
         .bits_per_pixel = 1,
-        .red            = { 0, 1, 0 },
-        .green          = { 0, 1, 0 },
-        .blue           = { 0, 1, 0 },
         .activate       = FB_ACTIVATE_NOW,
         .vmode          = FB_VMODE_NONINTERLACED
 };
 
 
-/* Config for device. */
-static struct fb_fix_screeninfo fb_lcd5110_fix __init_data = {
+static struct fb_fix_screeninfo fb_lcd5110_fix = {
         .id          = "LCD5110",
         .type        = FB_TYPE_PACKED_PIXELS,
-        .visual      = FB_VISUAL_MONO10,  // white = 1, black = 0
+        .visual      = FB_VISUAL_MONO10,
         .accel       = FB_ACCEL_NONE,
         .line_length = fb_lcd5110_var.xres * fb_lcd5110_var.bits_in_pixel / 8
 };
 
+// -------------------------
 
-struct lcd5110_page {
-    unsigned short x;
-    unsigned short y;
-    unsigned long *buffer;
-    unsigned short len;
-    int must_update;
+static int fb_lcd5110_check_var(struct fb_var_screeninfo *var, struct fb_info *info);
+static int fb_lcd5110_set_par(struct fb_info *info);
+static int fb_lcd5110_setcolreg(u_int regno, u_int red, u_int green, u_int blue, u_int transp, struct fb_info *info);
+static int fb_lcd5110_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
+
+static struct fb_ops fb_lcd5110_ops = {
+        .fb_read        = fb_sys_read,
+        .fb_write       = fb_sys_write,
+        .fb_fillrect	= sys_fillrect,
+        .fb_copyarea	= sys_copyarea,
+        .fb_imageblit	= sys_imageblit,
+
+//        .fb_check_var	= fb_lcd5110_check_var,
+//        .fb_set_par	    = fb_lcd5110_set_par,
+//        .fb_setcolreg	= fb_lcd5110_setcolreg,
+//        .fb_pan_display	= fb_lcd5110_pan_display,
+
 };
 
 
-struct lcd5110 {
-    struct device *device;
+// ----- DRIVER CODE -------
+// github.com/torvalds/linux/blob/master/drivers/video/fbdev/vfb.c
+
+static int fb_lcd5110_probe(struct platform_device *dev) {
     struct fb_info *info;
-    unsigned int num_pages;
-    struct lcd5110_page *pages;
-};
+    unsigned int size = PAGE_ALIGN(videomemorysize);
+    int retval = -ENOMEM;
 
+    if (!(videomemory = vmalloc_32_user(size)))
+        return retval;
 
-static int __init  fb_lcd5110_init(void) {
-    int result = 0;
-    result = platform_driver_register(&lcd5110_driver);
-    if(result < 0) {
-        printk("fb_lcd5110: error obtaining major number %d\n",
-               gpio_lcd5110_major);
-        return result;
+    info = framebuffer_alloc(sizeof(u32) * 256, &dev->dev);
+    if (!info)
+        goto err;
+
+    info->screen_base = (char __iomem *)videomemory;
+    info->fbops = &fb_lcd5110_ops;
+
+    if (!fb_find_mode(&info->var, info, mode_option,
+                      NULL, 0, &fb_lcd5110_var, 8)){
+        fb_err(info, "Unable to find usable video mode.\n");
+        retval = -EINVAL;
+        goto err1;
     }
+
+    fb_lcd5110_fix.smem_start = (unsigned long) videomemory;
+    fb_lcd5110_fix.smem_len = videomemorysize;
+    info->fix = fb_lcd5110_fix;
+    info->pseudo_palette = info->par;
+    info->par = NULL;
+    info->flags = FBINFO_FLAG_DEFAULT;
+
+    retval = fb_alloc_cmap(&info->cmap, 256, 0);
+    if (retval < 0)
+        goto err1;
+
+    retval = register_framebuffer(info);
+    if (retval < 0)
+        goto err2;
+    platform_set_drvdata(dev, info);
+
+    fb_lcd5110_set_par(info);
+
+    fb_info(info, "Virtual frame buffer device, using %ldK of video memory\n",
+            videomemorysize >> 10);
+    return 0;
+    err2:
+    fb_dealloc_cmap(&info->cmap);
+    err1:
+    framebuffer_release(info);
+    err:
+    vfree(videomemory);
+    return retval;
 }
 
+static int fb_lcd5110_remove(struct platform_device *dev)
+{
+    struct fb_info *info = platform_get_drvdata(dev);
 
-static void __exit fb_lcd5110_exit(void) {
-    struct fb_info *info = platform_get_drvdata(device);
-    struct lcd5110 *item = (struct lcd5110 *)info->par;
-    if (info != nullptr) {
+    if (info) {
         unregister_framebuffer(info);
+        vfree(videomemory);
+        fb_dealloc_cmap(&info->cmap);
         framebuffer_release(info);
-        kfree(item);
     }
-    printk("Freeing info structures and removing fb_lcd5110 driver\n");
     return 0;
 }
 
 
-static int fb_lcd5110_probe(struct probe* devp) {
-    struct device *device = &devp->dev;
-    struct fb_info *info;  // The main driver structure.
-    struct fb_private_field *prv;  // Private field - contains hardware state of the graphics card.
-
-    if ((info = framebuffer_alloc(sizeof(struct fb_private_field), &devp->dev)) && info != NULL) {
-        if (register_framebuffer(info) > 0) {
-            return 0;
-        } else
-            return -EINVAL;  // Failed to register our framebuffer driver in linux device tree.
-
-    } else
-        return -ENOMEM;  // Alloc failed due to lack of memory.
-}
-
-
-struct platform_driver lcd5110_driver = {
-        .probe  = fb_lcd5110_probe,
-        .remove = fb_lcd5110_exit,
-        .driver = { .name = "lcd5110" }
+// Initialize driver structure.
+static struct platform_driver fb_lcd5110_driver = {
+        .probe	= fb_lcd5110_probe,
+        .remove = fb_lcd5110_remove,
+        .driver = {
+                .name	= "fb_lcd5110",
+        },
 };
 
+// Initialize device structure for the driver above.
+static struct platform_device *fb_lcd5110_device;
+
+// -------------------------
+
+
+static int __init fb_lcd5110_init(void) {
+    int ret = 0;
+    if (!fb_lcd5110_enable)
+        return -ENXIO;
+    ret = platform_driver_register(&fb_lcd5110_driver);
+    if (!ret) {
+        fb_lcd5110_device = platform_device_alloc("fb_lcd5110", 0);
+        if (fb_lcd5110_device)
+            ret = platform_device_add(fb_lcd5110_device);
+        else
+            ret = -ENOMEM;
+        if (ret) {
+            platform_device_put(fb_lcd5110_device);
+            platform_driver_unregister(&fb_lcd5110_driver);
+        }
+    }
+    return ret;
+}
 
 module_init(fb_lcd5110_init);
+
+static void __exit fb_lcd5110_exit(void)
+{
+    platform_device_unregister(fb_lcd5110_device);
+    platform_driver_unregister(&fb_lcd5110_driver);
+}
 module_exit(fb_lcd5110_exit);
 
 MODULE_LICENSE("GPL");
