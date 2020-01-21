@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 
+#include <drivers/video/syscopyarea.h>
 #include <linux/fb.h>
 #include <linux/init.h>
 
@@ -56,6 +57,26 @@ static int fb_lcd5110_check_var(struct fb_var_screeninfo *var, struct fb_info *i
 static int fb_lcd5110_set_par(struct fb_info *info);
 static int fb_lcd5110_setcolreg(u_int regno, u_int red, u_int green, u_int blue, u_int transp, struct fb_info *info);
 static int fb_lcd5110_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
+
+
+
+static u_long get_line_length(int xres_virtual, int bpp) {
+    // from github.com/torvalds/linux/blob/master/drivers/video/fbdev/vfb.c#L98
+    u_long length;
+
+    length = xres_virtual * bpp;
+    length = (length + 31) & ~31;
+    length >>= 3;
+    return (length);
+}
+
+
+static int fb_lcd5110_set_par(struct fb_info *info) {
+    info->fix.visual = FB_VISUAL_MONO01;
+    info->fix.line_length = get_line_length(info->var.xres_virtual,
+                                            info->var.bits_per_pixel);
+    return 0;
+}
 
 static struct fb_ops fb_lcd5110_ops = {
         .fb_read        = fb_sys_read,
