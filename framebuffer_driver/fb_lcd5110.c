@@ -79,11 +79,11 @@ static int fb_lcd5110_set_par(struct fb_info *info) {
 }
 
 static struct fb_ops fb_lcd5110_ops = {
-        .fb_read        = fb_sys_read,
-        .fb_write       = fb_sys_write,
-        .fb_fillrect	= sys_fillrect,
-        .fb_copyarea	= sys_copyarea,
-        .fb_imageblit	= sys_imageblit,
+        .fb_read        = cfb_read,
+        .fb_write       = cfb_write,
+        .fb_fillrect	= cfb_fillrect,
+        .fb_copyarea	= cfb_copyarea,
+        .fb_imageblit	= cfb_imageblit,
 
 //        .fb_check_var	= fb_lcd5110_check_var,
 //        .fb_set_par	    = fb_lcd5110_set_par,
