@@ -30,12 +30,12 @@ static u_long videomemorysize = VIDEOMEMSIZE;
 
 
 static struct fb_var_screeninfo fb_lcd5110_var = {
-        .xres           = 100,
-        .yres           = 50,
-        .xres_virtual   = 100,
-        .yres_virtual   = 50,
-        .width          = 84,
-        .height         = 48,
+        .xres           = 84,
+        .yres           = 48,
+        .xres_virtual   = 84,
+        .yres_virtual   = 48,
+        .width          = 50,
+        .height         = 50,
         .bits_per_pixel = 1,
         .red            = { 0, 1, 0 },
         .green          = { 0, 1, 0 },
@@ -80,18 +80,17 @@ static int fb_lcd5110_set_par(struct fb_info *info) {
     return 0;
 }
 
-static struct fb_ops fb_lcd5110_ops = {
-        .fb_read        = fb_sys_read,
-        .fb_write       = fb_sys_write,
-        .fb_fillrect	= sys_fillrect,
-        .fb_copyarea	= sys_copyarea,
-        .fb_imageblit	= sys_imageblit,
-//        .fb_check_var	= fb_lcd5110_check_var,
-//        .fb_set_par	    = fb_lcd5110_set_par,
-//        .fb_setcolreg	= fb_lcd5110_setcolreg,
-//        .fb_pan_display	= fb_lcd5110_pan_display,
+static struct fb_ops fb_lcd5110_ops = {};
 
-};
+//        .fb_read        = fb_sys_read,
+//        .fb_write       = fb_sys_write,
+//        .fb_fillrect	  = sys_fillrect,
+//        .fb_copyarea	  = sys_copyarea,
+//        .fb_imageblit	  = sys_imageblit,
+//        .fb_check_var	  = fb_lcd5110_check_var,
+//        .fb_set_par	  = fb_lcd5110_set_par,
+//        .fb_setcolreg	  = fb_lcd5110_setcolreg,
+//        .fb_pan_display = fb_lcd5110_pan_display,
 
 
 // ----- DRIVER CODE -------

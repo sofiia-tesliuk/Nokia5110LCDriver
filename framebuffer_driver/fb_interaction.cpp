@@ -1,8 +1,12 @@
-#include <stdio.h>
 #include <fcntl.h>
 #include <linux/fb.h>
-#include <sys/mman.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
 
 
 struct fb_var_screeninfo vinfo;
@@ -14,18 +18,18 @@ int main(int argc, char *argv[]) {
     unsigned char *fb_buf;
 
     if ((fb_device_file_descriptor = open(fb_name, O_RDWR)) < 0) {
-        printk("Failed to open %d\n", fb_name, var2);
-        exit(-1);
+        std::cout << ("Failed to open " << fb_name var2) << std::endl;
+        exit(EXIT_FAILURE);
     }
     if (ioctl(fb_device_file_descriptor, FBIOGET_VSCREENINFO, &vinfo)) {
-        printf("Failed calling vscreeninfo ioctl\n");
-        exit(-1);
+        std::cout << "Failed calling vscreeninfo ioctl." << std::endl;
+        exit(EXIT_FAILURE);
     }
 
-    fb_size = vinfo.xres*vinfo.yres*(vinfo.bits_per_pixel/8);
+    fb_size = vinfo.xres * vinfo.yres * (vinfo.bits_per_pixel / 8);
 
-    if ((fb_buf = mmap(0, fb_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_device_file_descriptor, 0)) == (void *) -1){
-        exit(-1);
+    if ((fb_buf = mmap(0, fb_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_device_file_descriptor, 0)) == (void *) - 1){
+        exit(EXIT_FAILURE);
     }
 
     for (i=0; i<fb_size; i++) {
@@ -39,5 +43,5 @@ int main(int argc, char *argv[]) {
     // clean-up
     munmap(fb_buf, fb_size);
     close(fb_device_file_descriptor);
-
+    exit(EXIT_SUCCESS);
 }
