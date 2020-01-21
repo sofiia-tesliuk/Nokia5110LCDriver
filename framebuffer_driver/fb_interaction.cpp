@@ -7,70 +7,37 @@
 
 struct fb_var_screeninfo vinfo;
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) {
 
-{
+    char* fb_name = "/dev/fb_lcd5110";
+    int fb_device_file_descriptor, fb_size, i;
+    unsigned char *fb_buf;
 
-    int fbfd, fbsize, i;
-
-    unsigned char *fbbuf;
-
-
-
-    /* Открываем видеопамять */
-
-    if ((fbfd = open("/dev/fb0", O_RDWR)) < 0) {
-
-        exit(1);
-
+    if ((fb_device_file_descriptor = open(fb_name, O_RDWR)) < 0) {
+        printk("Failed to open %d\n", fb_name, var2);
+        exit(-1);
+    }
+    if (ioctl(fb_device_file_descriptor, FBIOGET_VSCREENINFO, &vinfo)) {
+        printf("Failed calling vscreeninfo ioctl\n");
+        exit(-1);
     }
 
+    fb_size = vinfo.xres*vinfo.yres*(vinfo.bits_per_pixel/8);
 
-
-    /* Получаем изменяемые параметры изображения */
-
-    if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo)) {
-
-        printf("Bad vscreeninfo ioctl\n");
-
-        exit(2);
-
+    if ((fb_buf = mmap(0, fb_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_device_file_descriptor, 0)) == (void *) -1){
+        exit(-1);
     }
 
-
-
-    /* Размер кадрового буфера =
-
-        (разрешение по X * разрешение по Y * байты на пиксель) */
-
-    fbsize = vinfo.xres*vinfo.yres*(vinfo.bits_per_pixel/8);
-
-
-
-    /* Отображаем видеопамять */
-
-    if ((fbbuf = mmap(0, fbsize, PROT_READ|PROT_WRITE,
-
-                      MAP_SHARED, fbfd, 0)) == (void *) -1){
-
-        exit(3);
-
+    for (i=0; i<fb_size; i++) {
+        *(fb_buf+i) = 0x0;
+    }
+    msleep(10000);
+    for (i=0; i<fb_size; i++) {
+        *(fb_buf+i) = 0x1;
     }
 
-
-
-    /* Очищаем экран */
-
-    for (i=0; i<fbsize; i++) {
-
-        *(fbbuf+i) = 0x0;
-
-    }
-
-
-
-    munmap(fbbuf, fbsize);
-
-    close(fbfd);
+    // clean-up
+    munmap(fb_buf, fb_size);
+    close(fb_device_file_descriptor);
 
 }
