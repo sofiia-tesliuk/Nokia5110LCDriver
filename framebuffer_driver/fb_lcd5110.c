@@ -18,7 +18,6 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 
-#include <external_files.h>
 #include <linux/fb.h>
 #include <linux/init.h>
 
