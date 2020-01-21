@@ -47,7 +47,7 @@ static struct fb_fix_screeninfo fb_lcd5110_fix = {
         .type        = FB_TYPE_PACKED_PIXELS,
         .visual      = FB_VISUAL_MONO10,
         .accel       = FB_ACCEL_NONE,
-        .line_length = fb_lcd5110_var.xres * fb_lcd5110_var.bits_in_pixel / 8
+        .line_length = 84
 };
 
 // -------------------------
@@ -89,13 +89,6 @@ static int fb_lcd5110_probe(struct platform_device *dev) {
 
     info->screen_base = (char __iomem *)videomemory;
     info->fbops = &fb_lcd5110_ops;
-
-    if (!fb_find_mode(&info->var, info, mode_option,
-                      NULL, 0, &fb_lcd5110_var, 8)){
-        fb_err(info, "Unable to find usable video mode.\n");
-        retval = -EINVAL;
-        goto err1;
-    }
 
     fb_lcd5110_fix.smem_start = (unsigned long) videomemory;
     fb_lcd5110_fix.smem_len = videomemorysize;
@@ -158,8 +151,6 @@ static struct platform_device *fb_lcd5110_device;
 
 static int __init fb_lcd5110_init(void) {
     int ret = 0;
-    if (!fb_lcd5110_enable)
-        return -ENXIO;
     ret = platform_driver_register(&fb_lcd5110_driver);
     if (!ret) {
         fb_lcd5110_device = platform_device_alloc("fb_lcd5110", 0);
